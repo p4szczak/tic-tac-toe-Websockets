@@ -1,0 +1,47 @@
+#panel {
+    width: 400px; 
+    margin: 0 auto; 
+    padding: 15px 0 0;
+    background: #fff;
+    border: 1px solid silver;
+    font: 16px calibri;
+    letter-spacing: -1px;
+    -webkit-box-shadow: 0 0 2px silver; 
+    -moz-box-shadow: 0 0 2px silver; 
+    box-shadow: 0 0 2px silver;
+    }
+    form {
+    margin: 0;
+}
+
+label {
+    display: block;
+    width: 260px;
+    padding: 10px 20px;
+    color: #696969;
+    font-size: 16px;
+    text-shadow: 0 0 1px silver;
+    }
+
+#player1, #player2, #room {
+    display: block;
+    width: 360px; 
+    margin: 0 auto;
+    padding: 10px 5px;
+    border: 1px solid silver;
+    outline: 5px solid #ebebeb;
+    font-size: 22px;
+    margin-bottom: 10px 
+    }
+    #player1:focus, #player2:focus,  #room:focus{
+    outline: 5px solid #e5f2f8;
+    }
+
+#join, #create {
+    width: 200px;
+    padding: 5px 13px;
+    position: relative;
+    left: 100px;
+    font-size: 22px;
+    margin-bottom: 10px 
+}

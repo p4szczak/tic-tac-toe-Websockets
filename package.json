@@ -1,8 +1,9 @@
 {
-    "name": "socket-chat-example",
+    "name": "tic-tac-toe",
     "version": "0.0.1",
-    "description": "my first socket.io app",
+    "description": "Study project",
     "dependencies": {
-        "express": "^4.15.2"
+        "express": "^4.15.2",
+        "socket.io": "^2.2.0"
     }
 }

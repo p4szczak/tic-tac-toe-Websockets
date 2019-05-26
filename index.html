@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Tic-Tac-Toe Menu</title>
+  </head>
+  <body>
+    <div id="panel">
+        <h1>Tic-Tac-Toe Websockets</h1>
+        <form>
+            <h2>Create new room</h2>
+            <label>Name:</label>
+            <input type="text" id="player1" name="player1">
+            <button id="create">Create room</button>
+            <br><br>
+            <h2>Join to room</h2>
+            <label>Name:</label>
+            <input type="text" id="player2" name="player2">
+            <label>Room name</label>
+            <input type="text" id="room" name="room">
+            <button id="join">Join room</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+        $(function () {
+            var socket = io();
+            $('#create').on('click', function(){
+                socket.emit('roomCreation', $("#player1").val());
+                return false;
+            });
+            
+            $('#join').on('click', function(){
+                socket.emit('roomJoin', $("#room").val() + ";" + $("#player2").val());
+                return false;
+            });
+
+            // socket.on('newRoom', function(msg){
+            //     alert('Room created: ' + msg);
+            // });
+
+            socket.on('player1', function(msg){
+                alert('User connected: ' + msg);
+            });
+        });
+    </script>
+  </body>
+</html>
