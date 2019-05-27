@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Tic-Tac-Toe Menu</title>
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <div id="panel">
@@ -19,29 +20,158 @@
             <input type="text" id="room" name="room">
             <button id="join">Join room</button>
         </form>
+        <canvas id="game" width="300" height="300" style="border:1px solid #d3d3d3;"></canvas>
     </div>
-
+    
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     <script>
         $(function () {
+
+            var p1 = 'X';
+            var p2 = 'O';
             var socket = io();
+            var player;
+            var game;
+            var room;
+
+            function relMouseCoords(event){
+                var totalOffsetX = 0;
+                var totalOffsetY = 0;
+                var canvasX = 0;
+                var canvasY = 0;
+                var currentElement = this;
+    
+                do{
+                    totalOffsetX += currentElement.offsetLeft - currentElement.scrollLeft;
+                    totalOffsetY += currentElement.offsetTop - currentElement.scrollTop;
+                }
+                while(currentElement = currentElement.offsetParent)
+    
+                canvasX = event.pageX - totalOffsetX;
+                canvasY = event.pageY - totalOffsetY;
+    
+                return {x:canvasX, y:canvasY}
+            }
+            HTMLCanvasElement.prototype.relMouseCoords = relMouseCoords;
+            
+            function drawBoard(){
+                var ctx = document.getElementById("game").getContext("2d");
+                ctx.clearRect(0, 0, 300, 300);
+                ctx.beginPath();
+                ctx.moveTo(100,0);
+                ctx.lineTo(100,300);
+                ctx.moveTo(200,0);
+                ctx.lineTo(200,300);
+                ctx.moveTo(0,100);
+                ctx.lineTo(300,100);
+                ctx.moveTo(0,200);
+                ctx.lineTo(300,200);
+                ctx.stroke();
+            }
+
+            function drawOnCanvas(elem, type){
+                var ctx= document.getElementById("game").getContext("2d");
+                ctx.font="60px Georgia";
+                var moveX = 100;
+                var moveY; 
+                if(elem > 2 && elem <= 5)
+                    moveY = 100;
+                else if (elem > 5)
+                    moveY = 200;
+                else
+                    moveY = 0;
+
+                ctx.fillText(type, 25 + elem % 3 * moveX, 70 + moveY);
+            }
+
+            class Player{
+                constructor(name, type){
+                    this.name = name;
+                    this.type = type;
+                    this.numType = type == 'X' ? 1 : 2;
+                    this.turn = false;
+                }
+                getTurn(){
+                    return this.turn;
+                }
+
+                setTurn(turn){
+                    this.turn = turn;
+                }
+                getType(){
+                    return this.type;
+                }
+
+                getNumType(){
+                    return this.numType;
+                }
+            }
+
             $('#create').on('click', function(){
                 socket.emit('roomCreation', $("#player1").val());
+                player = new Player($("#player1").val(), p1);
                 return false;
             });
             
             $('#join').on('click', function(){
-                socket.emit('roomJoin', $("#room").val() + ";" + $("#player2").val());
+                room = $("#room").val();
+                socket.emit('roomJoin', room + ";" + $("#player2").val());
+                player = new Player($("#player2").val(), p2);
                 return false;
             });
 
-            // socket.on('newRoom', function(msg){
-            //     alert('Room created: ' + msg);
-            // });
+            socket.on('newRoom', function(msg){
+                alert('Room created: ' + msg);
+                room = msg;
+                drawBoard();
+                game = [0,0,0,0,0,0,0,0,0];
+            });
 
             socket.on('player1', function(msg){
-                alert('User connected: ' + msg);
+                alert('Enemy connected: ' + msg);
+                player.setTurn(true);
+            });
+
+            socket.on('player2', function(msg){
+                alert('You have successfuly connected to: ' + msg);
+                drawBoard();
+                game = [0,0,0,0,0,0,0,0,0];
+            });
+
+            socket.on('turn',function(msg){
+                player.setTurn(true);
+                var enemyNumType = player.getNumType() + 1 % 2;
+                var enemyType = player.getType() == 'X' ? 'O' : 'X';
+                drawOnCanvas(msg, enemyType);
+            });
+
+            socket.on('err', function(msg){
+                alert('Error: ' + msg);
+            });
+
+            $('#game').on('click', function(){
+                var cords = document.getElementById("game").relMouseCoords(event);
+                var elem;
+                if(cords.x < 100 && cords.y < 100) elem = 0
+                else if(cords.x>100 && cords.x <= 200 && cords.y < 100) elem = 1
+                else if(cords.x>200 && cords.x <= 300 && cords.y < 100) elem = 2
+                else if(cords.x < 100 && cords.y < 200 && cords.y > 100) elem = 3
+                else if(cords.x>100 && cords.x <= 200 && cords.y < 200 && cords.y > 100) elem = 4
+                else if(cords.x>200 && cords.x <= 300 && cords.y < 200 && cords.y > 100) elem = 5
+                else if(cords.x < 100 && cords.y < 300 && cords.y > 200) elem = 6
+                else if(cords.x>100 && cords.x <= 200 && cords.y < 300 && cords.y > 200) elem = 7
+                else if(cords.x>200 && cords.x <= 300 && cords.y < 300 && cords.y > 200) elem = 8
+
+                if(game[elem] == 0 && player.getTurn()){
+                    drawOnCanvas(elem, player.getType());
+                    game[elem] = player.getNumType();
+                    socket.emit('turn', room + ';' + elem);
+                    player.setTurn(false);
+                }
+                else console.log("aaaa");
+                
+                return false;
             });
         });
     </script>
