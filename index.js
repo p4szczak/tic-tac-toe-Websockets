@@ -18,21 +18,29 @@ http.listen(3000, function(){
 
 io.on('connection', function(socket){
     socket.on('roomCreation', function(msg){
-		var roomName = "room-" + roomCounter;
+		
+		console.log('room with id: ' + roomCounter + ' has been created by: ' + msg);
+		socket.join(roomCounter);
+		socket.emit('newRoom', roomCounter);
 		roomCounter++;
-		console.log('room: ' + roomName + ' has been created by: ' + msg);
-		socket.join(roomName);
-		socket.emit('newRoom', roomName);
     });
 });
 
 io.on('connection', function(socket){
 	socket.on('turn', function(msg){
-		var msg_split = msg.split(";");
-		var roomName = msg_split[0];
-		var move = msg_split[1];
-		console.log('move in room: ' + roomName + 'on position: ' + move);
-		socket.broadcast.to(roomName).emit('turn', move);
+		var recvBufView = new Uint8Array(msg);
+
+		var bufArr = new ArrayBuffer(2);
+		var sendBufView = new Uint8Array(bufArr);
+
+		sendBufView[0] = msg[1];
+		sendBufView[1] = msg[2];
+
+		var roomName = msg[0];
+		console.log(sendBufView);
+		console.log('move in room: ' + roomName + ' on position: ' + msg[1] + ' victory: ' + msg[2]);
+
+		socket.broadcast.to(roomName).emit('turn', bufArr);
 	});
 });
 
