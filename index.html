@@ -33,7 +33,7 @@
             var socket = io();
             var player;
             var game;
-            var room;
+            var roomId = -1;
             var turnCounter = 0;
 
             function relMouseCoords(event){
@@ -129,21 +129,33 @@
             }
 
             $('#create').on('click', function(){
-                socket.emit('roomCreation', $("#player1").val());
-                player = new Player($("#player1").val(), p1);
-                return false;
+                if(roomId >= 0){
+                    alert('Please end current game before you join new one!');
+                    return false;
+                }
+                else{
+                    socket.emit('roomCreation', $("#player1").val());
+                    player = new Player($("#player1").val(), p1);
+                    return false;
+                }
             });
             
             $('#join').on('click', function(){
-                room = $("#room").val();
-                socket.emit('roomJoin', room + ";" + $("#player2").val());
-                player = new Player($("#player2").val(), p2);
-                return false;
+                if(roomId >= 0){
+                    alert('Please end current game before you join new one!');
+                    return false;
+                }
+                else{
+                    roomId = $("#room").val();
+                    socket.emit('roomJoin', roomId + ";" + $("#player2").val());
+                    player = new Player($("#player2").val(), p2);
+                    return false;
+                }
             });
 
             socket.on('newRoom', function(msg){
                 alert('Room created: ' + msg);
-                room = msg;
+                roomId = msg;
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
             });
@@ -151,33 +163,44 @@
             socket.on('player1', function(msg){
                 alert('Enemy connected: ' + msg);
                 player.setTurn(true);
+                turnCounter = 0;
             });
 
             socket.on('player2', function(msg){
                 alert('You have successfuly connected to: ' + msg);
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
+                turnCounter = 0;
             });
 
             socket.on('turn',function(msg){
+                var recvBufView = new Uint8Array(msg);
                 turnCounter++;
                 player.setTurn(true);
-                var recvBufView = new Uint8Array(msg);
+                
                 console.log(recvBufView);
                 var enemyNumType = player.getNumType() + 1 % 2;
                 var enemyType = player.getType() == 'X' ? 'O' : 'X';
                 
                 game[recvBufView[0]] = enemyNumType;
                 drawOnCanvas(recvBufView[0], enemyType);
-                if(recvBufView[1] == 1){
-                    alert('You lose!');
-                }
-                else if (recvBufView[1] == 2){
-                    alert('Draw...');
+
+                if(recvBufView[1] != 0){
+                    socket.emit('ackResult',roomId);
+                    if(recvBufView[1] == 1){
+                        alert('You lose!');
+                    }
+                    else if (recvBufView[1] == 2){
+                        alert('Draw...');
+                    }
+                    player.setTurn(false);
+                    turnCounter = 0;
+                    roomId = -1;
                 }
             });
 
             socket.on('err', function(msg){
+                roomId = -1;
                 alert('Error: ' + msg);
             });
 
@@ -200,17 +223,21 @@
                     turnCounter++;
                     var bufArr = new ArrayBuffer(3);
                     var bufView = new Uint8Array(bufArr);
-                    bufView[0] = room;
+                    bufView[0] = roomId;
                     bufView[1] = elem;
                     bufView[2] = checkVictory();
                     socket.emit('turn', bufArr);
-                    if(checkVictory() == 2){
-                        alert('Draw...');
+                    cv = checkVictory();
+                    if (cv > 0){
+                        if(cv == 2){
+                            alert('Draw...');
+                        }
+                        else if(cv == 1){
+                            alert('You won!');
+                        }
+                        turnCounter = 0;
+                        roomId = -1;
                     }
-                    else if(checkVictory() == 1){
-                        alert('You won!');
-                    }
-                    
                     player.setTurn(false);
                     
                 }
