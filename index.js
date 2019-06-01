@@ -1,9 +1,9 @@
 /**
- * gameStatus 	-> 0 pending on enemy
- * 							-> 1 game in progress
- * 							-> 10 draw
- * 							-> 11 player1 won
- * 							-> 12 player2 won
+ * gameStatus	-> 0 pending on enemy
+ * 				-> 1 game in progress
+ * 				-> 11 player1 won
+ * 				-> 12 player2 won
+ * 				-> 13 draw
  *  						
  * 						
  * 
@@ -70,47 +70,56 @@ class Game{
 		}
 	}
 
-	makeTurn(position,playerCode){
-		console.log("aaaa");
+	checkVictory(id){
+		//vertical
+		if(this.table[0] == this.table[3] && this.table[0] == this.table[6] && this.table[0] != 0) return id;
+		else if(this.table[1] == this.table[4] && this.table[1] == this.table[7] && this.table[1] != 0) return id;
+		else if(this.table[2] == this.table[5] && this.table[2] == this.table[8] && this.table[2] != 0) return id;
+		//horizontal
+		else if(this.table[0] == this.table[1] && this.table[0] == this.table[2] && this.table[0] != 0) return id;
+		else if(this.table[3] == this.table[4] && this.table[4] == this.table[5] && this.table[3] != 0) return id;
+		else if(this.table[6] == this.table[7] && this.table[6] == this.table[8] && this.table[6] != 0) return id;
+		//cross
+		else if(this.table[0] == this.table[4] && this.table[0] == this.table[8] && this.table[0] != 0) return id;
+		else if(this.table[2] == this.table[4] && this.table[2] == this.table[6] && this.table[2] != 0) return id;
+		else if (this.turnCounter >= 9) return 3;
+		
+		else return 0;
+	}
+
+	makeTurn(position, playerCode){
+
 		if(playerCode != this.whoNow || this.table[position] != 0) return
 
-		var bufArr = new ArrayBuffer(2);
+		var bufArr = new ArrayBuffer(3);
 		var sendBufView = new Uint8Array(bufArr);
 		
 		sendBufView[0] = position;
 		sendBufView[1] = playerCode;
-		
 		console.log(sendBufView);
 		console.log('move in room: ' + this.roomId + ' on position: ' + position + ' playerType: ' + playerCode);
+		this.table[position] = this.whoNow
+		var cv = this.checkVictory(this.whoNow);
+		sendBufView[2] = cv;
+		console.log(this.table)
 		if(this.whoNow == 1){
 			this.player1Socket.broadcast.to(this.roomId).emit('turn', bufArr);
-			this.whoNow = 2;
+			this.whoNow = 2;	
+			this.player1Socket.emit('end', bufArr);
 		}
 		else{
 			this.player2Socket.broadcast.to(this.roomId).emit('turn', bufArr);
 			this.whoNow = 1;
+			this.player2Socket.emit('end', bufArr);
 		}
-		//TUTAJ PROBLEM
+		if(cv != 0){
+			this.player2Socket.leave(this.roomId);
+			this.player1Socket.leave(this.roomId);
+			this.gameStatus = cv + 10;
+		}
 	}
-
-	checkVictory(){
-		if (this.turnCounter >= 9) return 2;
-			//vertical
-		else if(table[0] == table[3] && table[0] == table[6] && table[0] != 0) return 1;
-		else if(table[1] == table[4] && table[1] == table[7] && table[1] != 0) return 1;
-		else if(table[2] == table[5] && table[2] == table[8] && table[2] != 0) return 1;
-		//horizontal
-		else if(table[0] == table[1] && table[0] == table[2] && table[0] != 0) return 1;
-		else if(table[3] == table[4] && table[4] == table[5] && table[3] != 0) return 1;
-		else if(table[6] == table[7] && table[6] == table[8] && table[6] != 0) return 1;
-		//cross
-		else if(table[0] == table[4] && table[0] == table[8] && table[0] != 0) return 1;
-		else if(table[2] == table[4] && table[2] == table[6] && table[2] != 0) return 1;
-		
-		else return 0;
-	}
+	
 }
-
 
 var roomCounter = 0;
 var roomStatus = [];
@@ -160,32 +169,6 @@ io.on('connection', function(socket){
 
 		var roomId = msg[0];
 		roomStatus[roomId].makeTurn(msg[1], msg[2]);
-		// var bufArr = new ArrayBuffer(2);
-		// var sendBufView = new Uint8Array(bufArr);
-		
-		// sendBufView[0] = msg[1];
-		// sendBufView[1] = msg[2];
-
-		
-		
-		// console.log(sendBufView);
-		// console.log('move in room: ' + roomId + ' on position: ' + msg[1] + ' playerType: ' + msg[2]);
-		// socket.broadcast.to(roomId).emit('turn', bufArr);
-		// if(msg[2] != 0){
-		// 	roomStatus[roomId] = 2;
-		// 	socket.leave(roomId);
-		// 	io.of('/').in(roomId).clients((error, clients) => {
-		// 		if (error) throw error;
-		// 		console.log(clients); // => [Anw2LatarvGVVXEIAAAD]
-		// 	});
-		// }
 		
 	});
 });
-
-// io.on('connection', function(socket){
-// 	socket.on('ackResult', function(msg){
-// 		console.log('Leaving room ' + msg + '..');
-// 		socket.leave(msg);
-// 	});
-// });
