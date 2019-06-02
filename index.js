@@ -28,6 +28,7 @@
 *
 */
 
+var errorCodes = {'NO_ROOM_FOUND': 1, 'GAME_IN_PROGRESS': 2}; 
 var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
@@ -35,6 +36,15 @@ var io = require('socket.io')(http);
 function uint8arrayToStringMethod(myUint8Arr){
 	return String.fromCharCode.apply(null, myUint8Arr);
 }
+
+function StringToUint8arrayMethod(str) {
+	var buf = new ArrayBuffer(str.length); // 2 bytes for each char
+	var bufView = new Uint8Array(buf);
+	for (var i=0, strLen=str.length; i < strLen; i++) {
+	  bufView[i] = str.charCodeAt(i);
+	}
+	return buf;
+  }
 
 class Game{
 	constructor(roomId, player1Name,  player1Socket){
@@ -45,7 +55,10 @@ class Game{
 
 		console.log('room with id: ' + roomId + ' has been created by: ' + player1Name);
 		player1Socket.join(roomId);
-		player1Socket.emit('newRoom', roomId);
+		var bufArr = new ArrayBuffer(1);
+		var bufView = new Uint8Array(bufArr);
+		bufView[0] = roomId;
+		player1Socket.emit('newRoom', bufArr);
 
 		this.player2Name = null;
 		this.player2Socket = null;
@@ -57,14 +70,30 @@ class Game{
 
 	player2Join(_roomId, playerName, playerSocket){
 		if(this.gameStatus != 0){ 
-			playerSocket.emit('err', _roomId + ' is full');
+			var bufArrErr = new ArrayBuffer(2);
+			var bufViewErr = new Uint8Array(bufArrErr);
+			bufViewErr[0] = errorCodes['GAME_IN_PROGRESS'];
+			bufViewErr[1] = _roomId;
+			playerSocket.emit('err', bufArrErr);
 			console.log(_roomId + " is full");
 		}
 		else{
 			console.log('user: ' + playerName + ' connecting to: ' + _roomId);
 			playerSocket.join(_roomId);
-			playerSocket.broadcast.to(_roomId).emit('player1', playerName);
-			playerSocket.emit('player2', _roomId);
+			//send information to player1
+
+			var encodedPlayer2Name = StringToUint8arrayMethod(playerName);
+			var bufArrPlayer2Name = new ArrayBuffer(Object(encodedPlayer2Name).length);
+			var bufViewPlayer2Name = new Uint8Array(bufArrPlayer2Name);
+			bufViewPlayer2Name = encodedPlayer2Name;
+			console.log(encodedPlayer2Name);
+			playerSocket.broadcast.to(_roomId).emit('player1', bufViewPlayer2Name);
+
+			//resend room id to user who tries to connect
+			var bufArrRoomId = new ArrayBuffer(1);
+			var bufViewRoomId = new Uint8Array(bufArrRoomId);
+			bufViewRoomId[0] = _roomId;
+			playerSocket.emit('player2', bufArrRoomId);
 
 			this.gameStatus = 1;
 			this.player2Name = playerName;
@@ -93,6 +122,7 @@ class Game{
 
 	makeTurn(position, playerCode){
 
+		//sprawdzamy czy nie oszukuje
 		if(playerCode != this.whoNow || this.table[position] != 0) return
 
 		var bufArr = new ArrayBuffer(3);
@@ -161,8 +191,12 @@ io.on('connection', function(socket){
 
 		var room = io.nsps['/'].adapter.rooms[roomId];
 
-		if(!room){ 
-			socket.emit('err', roomId + ' does not exist');
+		if(!room){
+			var bufArrErr = new ArrayBuffer(2);
+			var bufViewErr = new Uint8Array(bufArrErr);
+			bufViewErr[0] = errorCodes['NO_ROOM_FOUND'];
+			bufViewErr[1] = roomId;
+			socket.emit('err',bufArrErr);
 			console.log(roomId + " does not exist");
 		}
 		else{

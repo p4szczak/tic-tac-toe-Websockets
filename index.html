@@ -187,8 +187,8 @@
                     return false;
                 }
                 else{
-                    roomId = $("#room").val();
-                    dataToSend = roomId + ";" + $("#player2").val();
+                    var _roomId = $("#room").val();
+                    dataToSend = _roomId + ";" + $("#player2").val();
                     
                     var encoded = Encodeuint8arr(dataToSend);
                     var bufArr = new ArrayBuffer(Object(encoded).length);
@@ -202,20 +202,24 @@
             });
 
             socket.on('newRoom', function(msg){
-                alert('Room created: ' + msg);
-                roomId = msg;
+                var recvBufView = new Uint8Array(msg);
+                roomId = recvBufView[0]
+                alert('Room created: ' + roomId);
+                
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
             });
 
             socket.on('player1', function(msg){
-                alert('Enemy connected: ' + msg);
+                var enemyName = Decodeuint8arr(msg);
+                alert('Enemy connected: ' + enemyName);
                 player.setTurn(true);
                 turnCounter = 0;
             });
 
             socket.on('player2', function(msg){
-                alert('You have successfuly connected to: ' + msg);
+                roomId = (new Uint8Array(msg))[0];
+                alert('You have successfuly connected to: ' + roomId);
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
                 turnCounter = 0;
@@ -241,9 +245,21 @@
                 endGameRoutine(recvBufView[2]);
             });
 
+            function retriveError(msg){
+                console.log(msg);
+                var recvBufView = new Uint8Array(msg);
+                var errorCode = recvBufView[0];
+                console.log(errorCode);
+                if(errorCode == 1){
+                    return 'Room: ' + recvBufView[1] + ' does not exist!';
+                }
+                else if (errorCode == 2){
+                    return 'In room: ' + recvBufView[1] + ' game is in progress';
+                }
+            }
             socket.on('err', function(msg){
                 roomId = -1;
-                alert('Error: ' + msg);
+                alert('Error: ' + retriveError(msg));
             });
 
             $('#game').on('click', function(){
