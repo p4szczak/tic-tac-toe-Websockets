@@ -28,6 +28,7 @@
     <script>
         $(function () {
 
+
             var p1 = 'X';
             var p2 = 'O';
             var socket = io();
@@ -35,6 +36,24 @@
             var game;
             var roomId = -1;
             var turnCounter = 0;
+
+            /**
+             * Convert a string into a Uint8Array.
+             *
+             * @returns {Uint8Array}
+             */
+             function Encodeuint8arr(myString){
+                return new TextEncoder("utf-8").encode(myString);
+            }
+
+            /**
+             * Convert an Uint8Array into a string.
+             *
+             * @returns {String}
+             */
+            function Decodeuint8arr(uint8array){
+                return new TextDecoder("utf-8").decode(uint8array);
+            }
 
             function relMouseCoords(event){
                 var totalOffsetX = 0;
@@ -109,7 +128,7 @@
                 if (winner != 0 ){
                     if(player.getNumType() == winner)
                         alert('You won!');
-                    else if (player.getNumType() == 3)
+                    else if (winner == 3)
                         alert('Draw!');
                     else
                         alert('You lose!');
@@ -150,7 +169,13 @@
                     return false;
                 }
                 else{
-                    socket.emit('roomCreation', $("#player1").val());
+                    encoded = Encodeuint8arr($("#player1").val());
+                    console.log('len: ' + Object(encoded).length);
+                    var bufArr = new ArrayBuffer(Object(encoded).length);
+                    var bufView = new Uint8Array(bufArr);
+                    bufArr = encoded;
+
+                    socket.emit('roomCreation', bufArr);
                     player = new Player($("#player1").val(), p1, 1);
                     return false;
                 }
@@ -163,7 +188,14 @@
                 }
                 else{
                     roomId = $("#room").val();
-                    socket.emit('roomJoin', roomId + ";" + $("#player2").val());
+                    dataToSend = roomId + ";" + $("#player2").val();
+                    
+                    var encoded = Encodeuint8arr(dataToSend);
+                    var bufArr = new ArrayBuffer(Object(encoded).length);
+                    var bufView = new Uint8Array(bufArr);
+                    bufArr = encoded;
+
+                    socket.emit('roomJoin', bufArr);
                     player = new Player($("#player2").val(), p2, 2);
                     return false;
                 }
@@ -237,17 +269,6 @@
                     bufView[1] = elem;
                     bufView[2] = player.getNumType();
                     socket.emit('turn', bufArr);
-                    // cv = checkVictory();
-                    // if (cv > 0){
-                    //     if(cv == 2){
-                    //         alert('Draw...');
-                    //     }
-                    //     else if(cv == 1){
-                    //         alert('You won!');
-                    //     }
-                    //     turnCounter = 0;
-                    //     roomId = -1;
-                    // }
                     player.setTurn(false);
                     
                 }

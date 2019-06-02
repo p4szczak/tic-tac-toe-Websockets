@@ -32,6 +32,10 @@ var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 
+function uint8arrayToStringMethod(myUint8Arr){
+	return String.fromCharCode.apply(null, myUint8Arr);
+}
+
 class Game{
 	constructor(roomId, player1Name,  player1Socket){
 		this.roomId = roomId;
@@ -98,8 +102,10 @@ class Game{
 		sendBufView[1] = playerCode;
 		console.log(sendBufView);
 		console.log('move in room: ' + this.roomId + ' on position: ' + position + ' playerType: ' + playerCode);
-		this.table[position] = this.whoNow
+		this.table[position] = this.whoNow;
+		this.turnCounter++
 		var cv = this.checkVictory(this.whoNow);
+		console.log('cv: '+ cv);
 		sendBufView[2] = cv;
 		console.log(this.table)
 		if(this.whoNow == 1){
@@ -139,15 +145,16 @@ http.listen(3000, function(){
 
 io.on('connection', function(socket){
     socket.on('roomCreation', function(msg){
-			roomStatus[roomCounter] = new Game(roomCounter, msg, socket);
+			var creatorName = uint8arrayToStringMethod(Object.values(msg));
+			roomStatus[roomCounter] = new Game(roomCounter, creatorName, socket);
 			roomCounter++;
     });
 });
 
 io.on('connection', function(socket){
 	socket.on('roomJoin', function(msg){
-
-		var msg_split = msg.split(";");
+		var recvMessage = uint8arrayToStringMethod(Object.values(msg));
+		var msg_split = recvMessage.split(";");
 		var roomId = msg_split[0];
 		var player2 = msg_split[1];
 		console.log(player2 + " attempts to connect " + roomId);
