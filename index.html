@@ -2,20 +2,22 @@
 <html>
   <head>
     <title>Tic-Tac-Toe Menu</title>
-    <link rel="stylesheet" href="styles.css">
+    <!-- <link rel="stylesheet" href="styles.css"> -->
   </head>
   <body>
     <div id="panel">
         <h1>Tic-Tac-Toe Websockets</h1>
         <form>
-            <h2>Create new room</h2>
-            <label>Name:</label>
-            <input type="text" id="player1" name="player1">
+            <h2>Login Panel</h2>
+            <label >Name:</label>
+            <input type="text" id="player1" name="player1" width="100">
+            <button id="login">Login</button>
+            <br><br>
+            <h2>Game options</h2>
             <button id="create">Create room</button>
             <br><br>
-            <h2>Join to room</h2>
-            <label>Name:</label>
-            <input type="text" id="player2" name="player2">
+            <!-- <label>Name:</label>
+            <input type="text" id="player2" name="player2"> -->
             <label>Room id</label>
             <input type="text" id="room" name="room">
             <button id="join">Join room</button>
@@ -28,14 +30,23 @@
     <script>
         $(function () {
 
+            function getValFromStorage(){
+                let animal = localStorage.getItem('nickname');
+                console.log(animal);
+                socket.emit('storage', animal);
+            }
 
             var p1 = 'X';
             var p2 = 'O';
-            var socket = io();
+            var socket = io('http://localhost:3000', { query: "sasasasa" });
             var player;
             var game;
             var roomId = -1;
             var turnCounter = 0;
+            var tempNick = "";
+
+            
+            getValFromStorage();
 
             /**
              * Convert a string into a Uint8Array.
@@ -163,32 +174,66 @@
                 }
             }
 
+
+
+            
+
+            $('#login').on('click', function(){
+                tempNick = $("#player1").val();
+                localStorage.clear();
+                localStorage.setItem('nickname', tempNick);
+                var encodedNick =  Encodeuint8arr(tempNick);
+                var bufArr = new ArrayBuffer(Object(encodedNick).length);
+                var bufView = new Uint8Array(bufArr);
+                bufArr = encodedNick;
+                console.log("wysylam: " + tempNick);
+                socket.emit('login', bufArr);
+                return false;
+            });
+
             $('#create').on('click', function(){
+                //
+                // localStorage.clear();
+                
+                // localStorage.setItem('animal', $("#player1").val());
+                //
+                
+                if(tempNick == ""){ 
+                    alert("You need to log in");
+                    return false;
+                }
                 if(roomId >= 0){
                     alert('Please end current game before you join new one!');
                     return false;
                 }
                 else{
-                    encoded = Encodeuint8arr($("#player1").val());
+                    
+                    encoded = Encodeuint8arr(tempNick);
                     console.log('len: ' + Object(encoded).length);
                     var bufArr = new ArrayBuffer(Object(encoded).length);
                     var bufView = new Uint8Array(bufArr);
                     bufArr = encoded;
-
+                    
                     socket.emit('roomCreation', bufArr);
                     player = new Player($("#player1").val(), p1, 1);
                     return false;
                 }
             });
-            
+            // getValFromStorage();
             $('#join').on('click', function(){
+                
+                if(tempNick == "") {
+                    alert("You need to log in"); 
+                    return false;
+                }
+
                 if(roomId >= 0){
                     alert('Please end current game before you join new one!');
                     return false;
                 }
                 else{
                     var _roomId = $("#room").val();
-                    dataToSend = _roomId + ";" + $("#player2").val();
+                    dataToSend = _roomId + ";" + $("#player1").val();
                     
                     var encoded = Encodeuint8arr(dataToSend);
                     var bufArr = new ArrayBuffer(Object(encoded).length);
@@ -196,12 +241,25 @@
                     bufArr = encoded;
 
                     socket.emit('roomJoin', bufArr);
-                    player = new Player($("#player2").val(), p2, 2);
+                    player = new Player($("#player1").val(), p2, 2);
                     return false;
                 }
             });
 
+            socket.on('login', function(msg){
+                var code = (new Uint8Array(msg))[0];
+                if(code == 3){
+                    tempNick = "";
+                    alert("Your nickname is in usage please provide another");
+                }
+                else{
+                    alert("Login as: " + tempNick);
+                }
+            });
+
+
             socket.on('newRoom', function(msg){
+                
                 var recvBufView = new Uint8Array(msg);
                 roomId = recvBufView[0]
                 alert('Room created: ' + roomId);
@@ -260,6 +318,21 @@
             socket.on('err', function(msg){
                 roomId = -1;
                 alert('Error: ' + retriveError(msg));
+            });
+
+            socket.on('gameRestore', function(msg){
+                drawBoard();
+                console.log(msg);
+                var recvBufView = new Uint8Array(msg);
+                console.log(recvBufView);
+                for(i = 0; i < 9; i++){
+                    if(recvBufView[i] == 1){
+                        drawOnCanvas(i, 'X');
+                    }
+                    else if(recvBufView[i] == 2){
+                        drawOnCanvas(i, 'O');
+                    }
+                }
             });
 
             $('#game').on('click', function(){

@@ -28,10 +28,11 @@
 *
 */
 
-var errorCodes = {'NO_ROOM_FOUND': 1, 'GAME_IN_PROGRESS': 2}; 
+var errorCodes = {'NO_ROOM_FOUND': 1, 'GAME_IN_PROGRESS': 2, 'NICK_IN_USE': 3, "LOGIN_SUCCESS": 4}; 
 var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
+var logUsers = {};
 
 function uint8arrayToStringMethod(myUint8Arr){
 	return String.fromCharCode.apply(null, myUint8Arr);
@@ -44,7 +45,32 @@ function StringToUint8arrayMethod(str) {
 	  bufView[i] = str.charCodeAt(i);
 	}
 	return buf;
-  }
+}
+
+class User{
+	constructor(name, socket){
+		this.name = name;
+		this.socket = socket;
+		this.roomId = -1;
+	}
+
+	setSocket(socket){
+		this.socket = socket;
+	}
+
+	getSocket(){
+		return this.socket;
+	}
+
+	setRoomId(roomId){
+		this.roomId = roomId;
+	}
+
+	getRoomId(){
+		return this.roomId;
+	}
+}
+
 
 class Game{
 	constructor(roomId, player1Name,  player1Socket){
@@ -52,8 +78,10 @@ class Game{
 		this.table = [0,0,0,0,0,0,0,0,0];
 		this.player1Name = player1Name;
 		this.player1Socket = player1Socket;
+		logUsers[player1Name].setRoomId(this.roomId);
 
-		console.log('room with id: ' + roomId + ' has been created by: ' + player1Name);
+
+		console.log('room with id: ' + logUsers[player1Name].getRoomId() + ' has been created by: ' + player1Name);
 		player1Socket.join(roomId);
 		var bufArr = new ArrayBuffer(1);
 		var bufView = new Uint8Array(bufArr);
@@ -67,6 +95,8 @@ class Game{
 		this.whoNow = 0;
 		this.turnCounter = 0;
 	}
+
+
 
 	player2Join(_roomId, playerName, playerSocket){
 		if(this.gameStatus != 0){ 
@@ -94,6 +124,8 @@ class Game{
 			var bufViewRoomId = new Uint8Array(bufArrRoomId);
 			bufViewRoomId[0] = _roomId;
 			playerSocket.emit('player2', bufArrRoomId);
+
+			logUsers[playerName].setRoomId(this.roomId);
 
 			this.gameStatus = 1;
 			this.player2Name = playerName;
@@ -151,10 +183,25 @@ class Game{
 		if(cv != 0){
 			this.player2Socket.leave(this.roomId);
 			this.player1Socket.leave(this.roomId);
+			logUsers[this.player1Name].setRoomId(-1);
+			logUsers[this.player2Name].setRoomId(-1);
 			this.gameStatus = cv + 10;
 		}
 	}
-	
+
+	gameRestore(msg, socket){
+		if(msg == this.player1Name){
+			this.player1Socket = socket;
+		}
+		else{
+			this.player2Socket = socket;
+		}
+		var bufArr = new ArrayBuffer(9);
+		var bufView = new Uint8Array(bufArr);
+		bufView = this.table;
+		console.log(bufView);
+		socket.emit('gameRestore', bufView);
+	}
 }
 
 var roomCounter = 0;
@@ -164,13 +211,40 @@ app.get('/', function(req, res){
     res.sendFile(__dirname + '/index.html');
 });
 
-io.on('connection', function(socket){
-    console.log('a user connected');
+// io.use(function(socket, next) {
+//   var handshakeData = socket.request;
+//   console.log("middleware:", handshakeData._query);
+//   next();
+// });
+
+io.on('connection', function(socket){		
+		console.log('a user connected');
 });
 
 
 http.listen(3000, function(){
   console.log('listening on *:3000');
+});
+
+io.on('connection', function(socket){
+	socket.on('login', function(msg){
+		var newUser = uint8arrayToStringMethod(Object.values(msg));
+		if(newUser in logUsers){
+			var bufArr = new ArrayBuffer(1);
+			var bufView = new Uint8Array(bufArr);
+			bufView[0] = errorCodes['NICK_IN_USE'];
+			socket.emit('login', bufArr);
+		}
+		else{
+			logUsers[newUser] = new User(newUser,socket);
+			var bufArr = new ArrayBuffer(1);
+			var bufView = new Uint8Array(bufArr);
+			bufView[0] = errorCodes['LOGIN_SUCCESS']
+			socket.emit('login', bufArr);
+			console.log(newUser + ": successfully connected");
+			console.log("users :"  + Object.keys(logUsers));
+		}
+	});
 });
 
 io.on('connection', function(socket){
@@ -211,5 +285,21 @@ io.on('connection', function(socket){
 		var roomId = msg[0];
 		roomStatus[roomId].makeTurn(msg[1], msg[2]);
 		
+	});
+});
+
+io.on('connection', function(socket){
+	socket.on('storage', function(msg){
+		console.log("Searching for game restorian to: " + msg);
+		
+		if(msg in logUsers){
+			console.log("User exist: " + msg);
+			var localRoom = logUsers[msg].getRoomId();
+			console.log(localRoom);
+			if(localRoom >= 0){
+				console.log("Game exist: " + msg);
+				roomStatus[localRoom].gameRestore(msg, socket);
+			}
+		}
 	});
 });
