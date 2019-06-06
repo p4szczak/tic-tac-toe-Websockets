@@ -12,6 +12,8 @@
             <label >Name:</label>
             <input type="text" id="player1" name="player1" width="100">
             <button id="login">Login</button>
+            <label id="loginMessage"></label>
+            <br><br>
             <br><br>
             <h2>Game options</h2>
             <button id="create">Create room</button>
@@ -34,11 +36,12 @@
                 let animal = localStorage.getItem('nickname');
                 console.log(animal);
                 socket.emit('storage', animal);
+                return animal;
             }
 
             var p1 = 'X';
             var p2 = 'O';
-            var socket = io('http://localhost:3000', { query: "sasasasa" });
+            var socket = io();
             var player;
             var game;
             var roomId = -1;
@@ -46,7 +49,7 @@
             var tempNick = "";
 
             
-            getValFromStorage();
+            var restoreNick = getValFromStorage();
 
             /**
              * Convert a string into a Uint8Array.
@@ -152,10 +155,10 @@
             }
 
             class Player{
-                constructor(name, type, numType){
+                constructor(name, numType){
                     this.name = name;
-                    this.type = type;
                     this.numType = numType;
+                    this.type = numType == 1 ? 'X' : 'O';
                     this.turn = false;
                 }
                 getTurn(){
@@ -207,7 +210,7 @@
                     return false;
                 }
                 else{
-                    
+                    console.log(tempNick);
                     encoded = Encodeuint8arr(tempNick);
                     console.log('len: ' + Object(encoded).length);
                     var bufArr = new ArrayBuffer(Object(encoded).length);
@@ -215,7 +218,7 @@
                     bufArr = encoded;
                     
                     socket.emit('roomCreation', bufArr);
-                    player = new Player($("#player1").val(), p1, 1);
+                    player = new Player(tempNick, 1);
                     return false;
                 }
             });
@@ -233,7 +236,7 @@
                 }
                 else{
                     var _roomId = $("#room").val();
-                    dataToSend = _roomId + ";" + $("#player1").val();
+                    dataToSend = _roomId + ";" + tempNick;
                     
                     var encoded = Encodeuint8arr(dataToSend);
                     var bufArr = new ArrayBuffer(Object(encoded).length);
@@ -241,7 +244,7 @@
                     bufArr = encoded;
 
                     socket.emit('roomJoin', bufArr);
-                    player = new Player($("#player1").val(), p2, 2);
+                    player = new Player(tempNick, 2);
                     return false;
                 }
             });
@@ -250,10 +253,11 @@
                 var code = (new Uint8Array(msg))[0];
                 if(code == 3){
                     tempNick = "";
-                    alert("Your nickname is in usage please provide another");
+                    document.getElementById('loginMessage').innerHTML = "Your nickname is in usage please provide another";
+                    // alert("Your nickname is in usage please provide another");
                 }
                 else{
-                    alert("Login as: " + tempNick);
+                    document.getElementById('loginMessage').innerHTML = "Successfully login as: " + tempNick;
                 }
             });
 
@@ -321,18 +325,36 @@
             });
 
             socket.on('gameRestore', function(msg){
+                game = [0,0,0,0,0,0,0,0,0];
+                tempNick = restoreNick;
+                console.log("Connected as: " + tempNick);
                 drawBoard();
                 console.log(msg);
-                var recvBufView = new Uint8Array(msg);
-                console.log(recvBufView);
-                for(i = 0; i < 9; i++){
-                    if(recvBufView[i] == 1){
+                
+                
+                for(var i = 0; i < 9; i++){
+                    if(msg[i] == 1){
+                        game[i] = 1;
                         drawOnCanvas(i, 'X');
                     }
-                    else if(recvBufView[i] == 2){
+                    else if(msg[i] == 2){
+                        game[i] = 2;
                         drawOnCanvas(i, 'O');
                     }
+                    else{
+                        game[i] = 0;
+                    }
+                    turnCounter++;
                 }
+                player = new Player(tempNick, msg[10]);
+                roomId = msg[9];
+                if(player.getNumType() == msg[11]){
+                    player.setTurn(true);
+                }
+                else{
+                    player.setTurn(false);
+                }
+
             });
 
             $('#game').on('click', function(){
@@ -348,6 +370,7 @@
                 else if(cords.x>100 && cords.x <= 200 && cords.y < 300 && cords.y > 200) elem = 7
                 else if(cords.x>200 && cords.x <= 300 && cords.y < 300 && cords.y > 200) elem = 8
 
+                console.log(game[elem], player.getTurn());
                 if(game[elem] == 0 && player.getTurn()){
                     drawOnCanvas(elem, player.getType());
                     game[elem] = player.getNumType();

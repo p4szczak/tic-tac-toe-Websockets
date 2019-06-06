@@ -190,15 +190,26 @@ class Game{
 	}
 
 	gameRestore(msg, socket){
+		var playerNumType = 0;
+		socket.join(this.roomId);
 		if(msg == this.player1Name){
 			this.player1Socket = socket;
+			playerNumType = 1;
 		}
 		else{
 			this.player2Socket = socket;
+			playerNumType = 2;
 		}
-		var bufArr = new ArrayBuffer(9);
+		//9-> pokoj; 10->typ gracza; 11-> ruch
+		var bufArr = new ArrayBuffer(12);
 		var bufView = new Uint8Array(bufArr);
-		bufView = this.table;
+		for(var i = 0; i < 9; i++){
+			bufView[i] = this.table[i];
+		}
+		bufView[9] = this.roomId;
+		bufView[10] = playerNumType;
+		bufView[11] = this.whoNow;
+		
 		console.log(bufView);
 		socket.emit('gameRestore', bufView);
 	}
