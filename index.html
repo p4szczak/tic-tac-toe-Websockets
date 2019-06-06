@@ -157,7 +157,7 @@
                         gameMessage('Draw!');
                     else
                         gameMessage('You lose!');
-                    localStorage.clear();
+                    
                     player.setTurn(false);
                     game = [0,0,0,0,0,0,0,0,0];
                     turnCounter = 0;
@@ -391,6 +391,11 @@
                 }
                                
                 return false;
+            });
+            window.addEventListener('beforeunload', (event) => {
+                if(roomId == -1){
+                    localStorage.clear();
+                }
             });
         });
     </script>
