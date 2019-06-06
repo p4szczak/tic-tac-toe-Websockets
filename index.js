@@ -69,6 +69,7 @@ class User{
 	getRoomId(){
 		return this.roomId;
 	}
+
 }
 
 
@@ -96,7 +97,16 @@ class Game{
 		this.turnCounter = 0;
 	}
 
+	getSockets(){
+		var tab = [];
+		tab[0] = this.player1Socket;
+		tab[1] = this.player2Socket;
+		return tab;
+	}
 
+	getGameStatus(){
+		return this.gameStatus;
+	}
 
 	player2Join(_roomId, playerName, playerSocket){
 		if(this.gameStatus != 0){ 
@@ -267,6 +277,25 @@ io.on('connection', function(socket){
 });
 
 io.on('connection', function(socket){
+    socket.on('disconnect', function(){
+		var nameToDelete;
+		var currRoom = -1;
+		for(var key in logUsers){
+			if(logUsers[key].getSocket() == socket){
+				nameToDelete = key;
+				currRoom = logUsers[key].getRoomId();
+			}
+		}
+		console.log('|' + nameToDelete + ',' + currRoom + '|');
+		if(currRoom == -1) delete logUsers[nameToDelete];
+		else if(roomStatus[currRoom].getGameStatus() == 0) delete logUsers[nameToDelete];
+		console.log(nameToDelete + ": user disconnected");
+		console.log("users :"  + Object.keys(logUsers));
+		
+    });
+});
+
+io.on('connection', function(socket){
 	socket.on('roomJoin', function(msg){
 		var recvMessage = uint8arrayToStringMethod(Object.values(msg));
 		var msg_split = recvMessage.split(";");
@@ -301,15 +330,17 @@ io.on('connection', function(socket){
 
 io.on('connection', function(socket){
 	socket.on('storage', function(msg){
-		console.log("Searching for game restorian to: " + msg);
-		
-		if(msg in logUsers){
-			console.log("User exist: " + msg);
-			var localRoom = logUsers[msg].getRoomId();
+		console.log("Some one is trying.. " + Object.values(msg));
+		// if(msg == null) return;
+		var rUser = uint8arrayToStringMethod(Object.values(msg));
+		if(rUser in logUsers){
+			console.log("User exist: " + rUser);
+			var localRoom = logUsers[rUser].getRoomId();
+			logUsers[rUser].setSocket(socket);
 			console.log(localRoom);
 			if(localRoom >= 0){
-				console.log("Game exist: " + msg);
-				roomStatus[localRoom].gameRestore(msg, socket);
+				console.log("Game exist: " + rUser);
+				roomStatus[localRoom].gameRestore(rUser, socket);
 			}
 		}
 	});

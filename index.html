@@ -12,8 +12,8 @@
             <label >Name:</label>
             <input type="text" id="player1" name="player1" width="100">
             <button id="login">Login</button>
-            <label id="loginMessage"></label>
             <br><br>
+            <label id="loginMessage"></label>
             <br><br>
             <h2>Game options</h2>
             <button id="create">Create room</button>
@@ -23,6 +23,8 @@
             <label>Room id</label>
             <input type="text" id="room" name="room">
             <button id="join">Join room</button>
+            <br><br>
+            <label id="gameMessage"></label>
         </form>
         <canvas id="game" width="300" height="300" style="border:1px solid #d3d3d3;"></canvas>
     </div>
@@ -31,25 +33,6 @@
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     <script>
         $(function () {
-
-            function getValFromStorage(){
-                let animal = localStorage.getItem('nickname');
-                console.log(animal);
-                socket.emit('storage', animal);
-                return animal;
-            }
-
-            var p1 = 'X';
-            var p2 = 'O';
-            var socket = io();
-            var player;
-            var game;
-            var roomId = -1;
-            var turnCounter = 0;
-            var tempNick = "";
-
-            
-            var restoreNick = getValFromStorage();
 
             /**
              * Convert a string into a Uint8Array.
@@ -68,7 +51,35 @@
             function Decodeuint8arr(uint8array){
                 return new TextDecoder("utf-8").decode(uint8array);
             }
+            
+            function getValFromStorage(){
+                let _name = localStorage.getItem('nickname');               
+                console.log(_name);
+                var encodedNick =  Encodeuint8arr(_name);
+                var bufArr = new ArrayBuffer(Object(_name).length);
+                var bufView = new Uint8Array(bufArr);
+                bufArr = encodedNick;
+                console.log(bufArr);
+                socket.emit('storage', bufArr);
+                return _name;
+            }
 
+            function gameMessage(message){
+                document.getElementById('gameMessage').innerHTML = message;
+            }
+
+            var p1 = 'X';
+            var p2 = 'O';
+            var socket = io('http://localhost:3000');
+            var player;
+            var game;
+            var roomId = -1;
+            var turnCounter = 0;
+            var tempNick = "";
+
+            
+            var restoreNick = getValFromStorage();
+            
             function relMouseCoords(event){
                 var totalOffsetX = 0;
                 var totalOffsetY = 0;
@@ -141,12 +152,12 @@
             function endGameRoutine(winner){
                 if (winner != 0 ){
                     if(player.getNumType() == winner)
-                        alert('You won!');
+                        gameMessage('You won!');
                     else if (winner == 3)
-                        alert('Draw!');
+                        gameMessage('Draw!');
                     else
-                        alert('You lose!');
-
+                        gameMessage('You lose!');
+                    localStorage.clear();
                     player.setTurn(false);
                     game = [0,0,0,0,0,0,0,0,0];
                     turnCounter = 0;
@@ -175,11 +186,7 @@
                 getNumType(){
                     return this.numType;
                 }
-            }
-
-
-
-            
+            }        
 
             $('#login').on('click', function(){
                 tempNick = $("#player1").val();
@@ -202,11 +209,11 @@
                 //
                 
                 if(tempNick == ""){ 
-                    alert("You need to log in");
+                    gameMessage("You need to log in");
                     return false;
                 }
                 if(roomId >= 0){
-                    alert('Please end current game before you join new one!');
+                    gameMessage('Please end current game before you join new one!');
                     return false;
                 }
                 else{
@@ -226,12 +233,12 @@
             $('#join').on('click', function(){
                 
                 if(tempNick == "") {
-                    alert("You need to log in"); 
+                    gameMessage("You need to log in"); 
                     return false;
                 }
 
                 if(roomId >= 0){
-                    alert('Please end current game before you join new one!');
+                    gameMessage('Please end current game before you join new one!');
                     return false;
                 }
                 else{
@@ -254,7 +261,6 @@
                 if(code == 3){
                     tempNick = "";
                     document.getElementById('loginMessage').innerHTML = "Your nickname is in usage please provide another";
-                    // alert("Your nickname is in usage please provide another");
                 }
                 else{
                     document.getElementById('loginMessage').innerHTML = "Successfully login as: " + tempNick;
@@ -266,7 +272,7 @@
                 
                 var recvBufView = new Uint8Array(msg);
                 roomId = recvBufView[0]
-                alert('Room created: ' + roomId);
+                gameMessage('Room created: ' + roomId + ' you need to wait for enemy');
                 
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
@@ -274,14 +280,14 @@
 
             socket.on('player1', function(msg){
                 var enemyName = Decodeuint8arr(msg);
-                alert('Enemy connected: ' + enemyName);
+                gameMessage('Enemy connected: ' + enemyName);
                 player.setTurn(true);
                 turnCounter = 0;
             });
 
             socket.on('player2', function(msg){
                 roomId = (new Uint8Array(msg))[0];
-                alert('You have successfuly connected to: ' + roomId);
+                gameMessage('You have successfuly connected to: ' + roomId);
                 drawBoard();
                 game = [0,0,0,0,0,0,0,0,0];
                 turnCounter = 0;
@@ -321,7 +327,7 @@
             }
             socket.on('err', function(msg){
                 roomId = -1;
-                alert('Error: ' + retriveError(msg));
+                gameMessage('Error: ' + retriveError(msg));
             });
 
             socket.on('gameRestore', function(msg){
@@ -329,8 +335,6 @@
                 tempNick = restoreNick;
                 console.log("Connected as: " + tempNick);
                 drawBoard();
-                console.log(msg);
-                
                 
                 for(var i = 0; i < 9; i++){
                     if(msg[i] == 1){
@@ -354,7 +358,8 @@
                 else{
                     player.setTurn(false);
                 }
-
+                document.getElementById('loginMessage').innerHTML = "Successfully reloged as: " + tempNick;
+                gameMessage("Succesfully connected with room: " + roomId);
             });
 
             $('#game').on('click', function(){
